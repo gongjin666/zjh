@@ -322,8 +322,11 @@ def answer_question(intent, entities, original_text):
     
     return "抱歉，我无法理解。试试问“吉利学院校史”、“知名校友有哪些”、“获得过什么荣誉”、“校长是谁”、“成都校区”、“校训”、“社团有哪些”等。"
 
-# 动态子图绘制（略，保持原有）
+# ==================== 优化后的知识图谱可视化（节点加图标/类型前缀，字体增大，布局更松散） ====================
 def draw_subgraph(entities, G):
+    """
+    绘制知识图谱局部视图，节点名称前增加类型图标/文字前缀，便于识别。
+    """
     if not entities:
         seeds = ["吉利学院", "高等数学", "图书馆", "校训"]
         nodes = set()
@@ -338,36 +341,87 @@ def draw_subgraph(entities, G):
             if ent in G:
                 nodes_to_keep.update(nx.single_source_shortest_path_length(G, ent, cutoff=1).keys())
         subG = G.subgraph(nodes_to_keep).copy()
-    fig, ax = plt.subplots(figsize=(8, 6))
+
+    fig, ax = plt.subplots(figsize=(10, 8))  # 增大画布尺寸
     if subG.number_of_nodes() == 0:
         ax.text(0.5, 0.5, "无相关实体", ha='center', va='center')
         ax.axis('off')
         return fig
-    pos = nx.spring_layout(subG, seed=42, k=1.8)
+
+    # 使用更分散的布局，减少节点重叠
+    pos = nx.spring_layout(subG, seed=42, k=2.5, iterations=50)
+
+    # 为不同类别节点定义颜色（沿用原有逻辑，稍作扩展）
     node_colors = []
     for node in subG.nodes:
         if node in entities:
-            node_colors.append("#ffb74d")
-        elif node in courses: node_colors.append("#81c784")
-        elif node in facilities: node_colors.append("#64b5f6")
-        elif node in policies: node_colors.append("#e57373")
-        elif node in history: node_colors.append("#f9a825")
-        elif node in famous_alumni: node_colors.append("#ab47bc")
-        elif node in honors: node_colors.append("#f06292")
+            node_colors.append("#ffb74d")   # 用户查询的实体高亮
+        elif node in courses:
+            node_colors.append("#81c784")
+        elif node in facilities:
+            node_colors.append("#64b5f6")
+        elif node in policies:
+            node_colors.append("#e57373")
+        elif node in history:
+            node_colors.append("#f9a825")
+        elif node in famous_alumni:
+            node_colors.append("#ab47bc")
+        elif node in honors:
+            node_colors.append("#f06292")
         elif node in [leaders[k] for k in leaders if isinstance(leaders[k], str)] + [item for sublist in [leaders[k] for k in leaders if isinstance(leaders[k], list)] for item in sublist]:
             node_colors.append("#ffa270")
-        elif node in campuses: node_colors.append("#4fc3f7")
-        elif node in campus_culture: node_colors.append("#26c6da")
-        elif node in clubs or any(node in lst for lst in clubs.values()): node_colors.append("#aed581")
-        elif node == "吉利学院": node_colors.append("#ff7043")
-        else: node_colors.append("#bdbdbd")
-    nx.draw_networkx_nodes(subG, pos, ax=ax, node_color=node_colors, node_size=800, alpha=0.9)
-    labels = {node: node for node in subG.nodes}
-    nx.draw_networkx_labels(subG, pos, labels, ax=ax, font_size=8,
-                            bbox=dict(facecolor="white", edgecolor="none", alpha=0.7, pad=1))
+        elif node in campuses:
+            node_colors.append("#4fc3f7")
+        elif node in campus_culture:
+            node_colors.append("#26c6da")
+        elif node in clubs or any(node in lst for lst in clubs.values()):
+            node_colors.append("#aed581")
+        elif node == "吉利学院":
+            node_colors.append("#ff7043")
+        else:
+            node_colors.append("#bdbdbd")
+
+    nx.draw_networkx_nodes(subG, pos, ax=ax, node_color=node_colors, node_size=900, alpha=0.9)
+
+    # 为每个节点生成带图标/类型前缀的标签
+    def get_label_with_prefix(node):
+        if node in courses:
+            return f"📘 {node}"
+        elif node in facilities:
+            return f"🏢 {node}"
+        elif node in policies:
+            return f"📜 {node}"
+        elif node in history:
+            return f"📅 {node}"
+        elif node in famous_alumni:
+            return f"🎓 {node}"
+        elif node in honors:
+            return f"🏆 {node}"
+        elif node in campuses:
+            return f"🏛️ {node}"
+        elif node in campus_culture:
+            return f"✨ {node}"
+        elif node in clubs:
+            return f"📂 {node}"          # 社团类别
+        elif any(node in lst for lst in clubs.values()):
+            return f"🎭 {node}"          # 具体社团
+        elif node == "吉利学院":
+            return f"🏫 {node}"
+        elif node in [leaders["董事长"], leaders["校长"], leaders["党委书记、督导专员、副校长"], leaders["党委副书记、副校长"]] + leaders["副校长"] + leaders["校长助理"]:
+            return f"👥 {node}"
+        else:
+            return node
+
+    labels = {node: get_label_with_prefix(node) for node in subG.nodes}
+
+    # 字体加大，并添加白色背景框以提高可读性
+    nx.draw_networkx_labels(subG, pos, labels, ax=ax, font_size=10,
+                            bbox=dict(facecolor="white", edgecolor="none", alpha=0.7, pad=2))
+
     if subG.edges:
-        nx.draw_networkx_edges(subG, pos, ax=ax, edge_color="gray", width=1, alpha=0.6, style="dashed")
-    ax.set_title("吉利学院知识图谱（局部视图）", fontsize=13)
+        nx.draw_networkx_edges(subG, pos, ax=ax, edge_color="gray", width=1.2, alpha=0.6, style="dashed")
+
+    ax.set_title("吉利学院知识图谱（局部视图）", fontsize=14, fontweight='bold')
     ax.axis('off')
     plt.tight_layout()
     return fig
@@ -408,7 +462,7 @@ with st.sidebar:
     st.header("🗺️ 知识图谱")
     fig = draw_subgraph(st.session_state.last_entities, G)
     st.pyplot(fig)
-    st.caption("所有节点均属于吉利学院")
+    st.caption("节点前缀说明：📘课程 🏢设施 📜政策 📅校史 🎓校友 🏆荣誉 🏛️校区 ✨文化 📂社团类别 🎭社团 👥领导 🏫学校")
     st.divider()
     st.subheader("📚 吉利学院知识库")
     with st.expander("🏫 校史"):
