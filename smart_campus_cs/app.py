@@ -145,7 +145,7 @@ leader_names.update(leaders["副校长"])
 leader_names.update(leaders["校长助理"])
 for ln in leader_names:
     entity_dict[ln] = "领导"
-# 荣誉条目本身不作为实体，保留年份作为实体用于查询特定年份
+# 荣誉年份作为实体（用于查询特定年份）
 for year in honors:
     entity_dict[year] = "荣誉年份"
 
@@ -155,7 +155,7 @@ def build_graph():
     G = nx.Graph()
     G.add_node("吉利学院", type="学校")
     
-    # 课程相关
+    # 课程相关（添加直接到吉利学院的边）
     for name in courses:
         G.add_node(name, type="课程")
         info = courses[name]
@@ -167,18 +167,20 @@ def build_graph():
         G.add_edge(name, room, relation="在")
         for pre in info["先修"]:
             G.add_edge(pre, name, relation="先修")
+        G.add_edge("吉利学院", name, relation="拥有课程")  # 连通根节点
     
-    # 设施
+    # 设施（添加直接到吉利学院的边）
     for name in facilities:
         G.add_node(name, type="设施")
         loc = facilities[name]["位置"]
         G.add_node(loc, type="位置")
         G.add_edge(name, loc, relation="位于")
+        G.add_edge("吉利学院", name, relation="拥有设施")  # 连通根节点
     
-    # 政策
+    # 政策（添加直接到吉利学院的边）
     for name in policies:
         G.add_node(name, type="政策")
-        G.add_edge("吉利学院", name, relation="政策")
+        G.add_edge("吉利学院", name, relation="拥有政策")  # 连通根节点
     
     # 校史事件
     for event_name in history:
@@ -190,12 +192,14 @@ def build_graph():
         G.add_node(name, type="校友")
         G.add_edge("吉利学院", name, relation="知名校友")
     
-    # 荣誉：年份节点 + 每个荣誉条目节点
+    # 荣誉：年份节点 + 每个荣誉条目节点（优化节点名长度）
     for year, entries in honors.items():
         G.add_node(year, type="年份")
         G.add_edge("吉利学院", year, relation="荣誉年份")
-        for entry in entries:
-            node_name = f"{year}_{entry[:20]}"  # 避免过长，但保证唯一
+        for idx, entry in enumerate(entries):
+            # 使用短名称避免图谱过于拥挤
+            short_name = entry[:12] + "…" if len(entry) > 12 else entry
+            node_name = f"{year}_{idx}_{short_name}"
             G.add_node(node_name, type="荣誉", full_name=entry, year=year)
             G.add_edge(year, node_name, relation="获得")
     
@@ -231,7 +235,7 @@ def build_graph():
 
 G = build_graph()
 
-# 缓存图布局
+# 缓存全图布局
 @st.cache_resource
 def get_graph_layout():
     return nx.spring_layout(G, seed=42, k=1.8)
@@ -290,7 +294,7 @@ def get_leader_position(name, leaders):
 
 # 多轮对话的实体继承
 def resolve_entities(current_entities, last_entities, text):
-    """如果当前没有实体但上一轮有，且文本包含指代词（它、这个），则继承上一轮"""
+    """如果当前没有实体但上一轮有，且文本包含指代词，则继承上一轮"""
     if not current_entities and last_entities:
         if any(word in text for word in ["它", "这个", "那个", "该"]):
             return last_entities
@@ -298,10 +302,8 @@ def resolve_entities(current_entities, last_entities, text):
 
 # ==================== 4. 问答生成 ====================
 def answer_question(intent, entities, original_text, last_entities):
-    # 实体解析（继承）
     final_entities = resolve_entities(entities, last_entities, original_text)
     
-    # 意图处理
     if intent == "greeting":
         return "您好！我是吉利学院智能客服，数据涵盖校史、校友、荣誉、领导、校区、文化、社团等。请问您想了解什么？"
     
@@ -317,7 +319,6 @@ def answer_question(intent, entities, original_text, last_entities):
     
     elif intent == "facility":
         if not final_entities:
-            # 如果文本中有“设施”但没有具体名称，返回列表
             if "设施" in original_text:
                 return f"🏢 **吉利学院设施包括**：{', '.join(facilities.keys())}。您也可以具体询问某个设施，如“图书馆几点开门？”"
             return "请问您想了解吉利学院的哪个设施？例如“图书馆”、“体育馆”、“第一食堂”、“校医院”。"
@@ -348,7 +349,6 @@ def answer_question(intent, entities, original_text, last_entities):
             return "2014年4月，教育部批准升格为本科高校，更名为北京吉利学院。"
         if "迁址" in text_lower or "搬迁" in text_lower:
             return "2020年4月，教育部批准整体搬迁至成都市，更名为吉利学院。"
-        # 如果有具体事件实体
         for ent in final_entities:
             if ent in history:
                 return f"📜 {history[ent]['时间']}：{history[ent]['事件']}"
@@ -367,19 +367,16 @@ def answer_question(intent, entities, original_text, last_entities):
         if "荣誉" in original_text or "获奖" in original_text or "获得过什么" in original_text:
             summary = "\n".join([f"**{year}年**：{', '.join(lst[:3])}{'...' if len(lst)>3 else ''}" for year, lst in honors.items()])
             return f"🏆 **吉利学院主要荣誉**\n{summary}\n（更多详情可询问具体年份，如“2023年荣誉”）"
-        # 检查是否有年份实体
         for ent in final_entities:
             if ent in honors:
                 return f"🏆 **{ent}吉利学院荣誉**：{', '.join(honors[ent])}"
         return "您可以问“吉利学院获得过什么荣誉”或指定年份如“2023年荣誉”。"
     
     elif intent == "leader":
-        # 优先使用提取出的领导姓名实体
         for ent in final_entities:
             if ent in leader_names:
                 pos = get_leader_position(ent, leaders)
                 return f"👤 {ent} 担任 {pos}。"
-        # 否则根据职位关键词
         text_lower = original_text.lower()
         if "董事长" in text_lower:
             return f"👤 吉利学院董事长：{leaders['董事长']}"
@@ -387,7 +384,6 @@ def answer_question(intent, entities, original_text, last_entities):
             return f"👤 吉利学院校长：{leaders['校长']}"
         if "书记" in text_lower:
             return f"👤 吉利学院党委书记、督导专员：{leaders['党委书记、督导专员、副校长']}"
-        # 默认返回所有领导
         leader_str = f"董事长：{leaders['董事长']}；校长：{leaders['校长']}；党委书记：{leaders['党委书记、督导专员、副校长']}；党委副书记、副校长：{leaders['党委副书记、副校长']}；副校长：{', '.join(leaders['副校长'])}；校长助理：{', '.join(leaders['校长助理'])}"
         return f"👥 **吉利学院现任领导**\n{leader_str}"
     
@@ -419,12 +415,10 @@ def answer_question(intent, entities, original_text, last_entities):
         if not final_entities:
             cats = "、".join(clubs.keys())
             return f"🎉 **吉利学院社团分类**：{cats}。您可以问“文化艺术类社团有哪些”或具体社团名称。"
-        # 检查是否为类别
         for cat in clubs:
             if cat in original_text:
                 club_list = "、".join(clubs[cat][:10]) + ("..." if len(clubs[cat])>10 else "")
                 return f"🎨 **{cat}**包括：{club_list}。"
-        # 检查是否为具体社团
         for cat, lst in clubs.items():
             for club in lst:
                 if club in original_text:
@@ -434,16 +428,22 @@ def answer_question(intent, entities, original_text, last_entities):
     else:
         return "抱歉，我无法理解。试试问“吉利学院校史”、“知名校友有哪些”、“获得过什么荣誉”、“校长是谁”、“成都校区”、“校训”、“社团有哪些”等。"
 
-# ==================== 5. 图谱可视化（优化性能） ====================
-def draw_subgraph(entities, G, full_layout, max_nodes=30):
-    """绘制局部子图，限制节点数量"""
+# ==================== 5. 图谱可视化（优化性能 + 连通性） ====================
+def draw_subgraph(entities, G, full_layout, max_nodes=25):
+    """绘制局部子图，默认种子包含吉利学院保证连通"""
     if not entities:
-        seeds = ["吉利学院", "高等数学", "图书馆", "校训"]
-        nodes = set()
+        # 默认展示吉利学院及其直接邻居，并补充几个典型实体的一跳邻居
+        seeds = ["吉利学院"]
+        nodes = set(seeds)
         for s in seeds:
             if s in G:
-                nodes.add(s)
                 nodes.update(nx.single_source_shortest_path_length(G, s, cutoff=1).keys())
+        # 如果节点数太少，再添加几个重要实体的一跳邻居
+        if len(nodes) < 5:
+            extra = ["高等数学", "图书馆", "校训"]
+            for e in extra:
+                if e in G:
+                    nodes.update(nx.single_source_shortest_path_length(G, e, cutoff=1).keys())
         if len(nodes) > max_nodes:
             nodes = set(list(nodes)[:max_nodes])
         subG = G.subgraph(nodes).copy()
@@ -452,6 +452,8 @@ def draw_subgraph(entities, G, full_layout, max_nodes=30):
         for ent in entities:
             if ent in G:
                 nodes_to_keep.update(nx.single_source_shortest_path_length(G, ent, cutoff=1).keys())
+        # 确保包含吉利学院以增强连通性
+        nodes_to_keep.add("吉利学院")
         if len(nodes_to_keep) > max_nodes:
             nodes_to_keep = set(list(nodes_to_keep)[:max_nodes])
         subG = G.subgraph(nodes_to_keep).copy()
@@ -464,7 +466,6 @@ def draw_subgraph(entities, G, full_layout, max_nodes=30):
     
     # 使用缓存布局中的位置（仅保留子图中节点）
     pos = {node: full_layout[node] for node in subG.nodes if node in full_layout}
-    # 如果某些节点不在缓存中，用spring_layout补充
     missing = [n for n in subG.nodes if n not in pos]
     if missing:
         sub_subG = G.subgraph(missing).copy()
@@ -486,10 +487,20 @@ def draw_subgraph(entities, G, full_layout, max_nodes=30):
         elif node in campus_culture: node_colors.append("#26c6da")
         elif node in clubs or any(node in lst for lst in clubs.values()): node_colors.append("#aed581")
         elif node == "吉利学院": node_colors.append("#ff7043")
+        elif node.startswith("20") and "_" in node:  # 荣誉节点
+            node_colors.append("#f06292")
         else: node_colors.append("#bdbdbd")
     
     nx.draw_networkx_nodes(subG, pos, ax=ax, node_color=node_colors, node_size=600, alpha=0.9)
     labels = {node: node for node in subG.nodes}
+    # 对于荣誉节点，显示短名称（去掉年份前缀）
+    def get_label(node):
+        if node.startswith("20") and "_" in node:
+            parts = node.split("_")
+            if len(parts) >= 3:
+                return parts[2]  # 显示荣誉短名
+        return node
+    labels = {node: get_label(node) for node in subG.nodes}
     nx.draw_networkx_labels(subG, pos, labels, ax=ax, font_size=7,
                             bbox=dict(facecolor="white", edgecolor="none", alpha=0.7, pad=1))
     if subG.edges:
@@ -518,11 +529,9 @@ if prompt := st.chat_input("请输入您的问题..."):
     
     intent = classify_intent(prompt)
     entities = extract_entities(prompt, entity_dict)
-    # 多轮实体继承
     final_entities = resolve_entities(entities, st.session_state.last_entities, prompt)
     answer = answer_question(intent, final_entities, prompt, st.session_state.last_entities)
     
-    # 存储本次结果供下一轮使用
     st.session_state.last_entities = final_entities
     st.session_state.last_intent = intent
     
@@ -538,11 +547,10 @@ if prompt := st.chat_input("请输入您的问题..."):
 # 侧边栏
 with st.sidebar:
     st.header("🗺️ 知识图谱")
-    # 获取缓存的完整布局
     full_layout = get_graph_layout()
     fig = draw_subgraph(st.session_state.last_entities, G, full_layout, max_nodes=25)
     st.pyplot(fig)
-    st.caption("所有节点均属于吉利学院 | 子图限制25个节点")
+    st.caption("所有节点均属于吉利学院 | 子图限制25个节点，增强连通性")
     st.divider()
     
     st.subheader("📚 吉利学院知识库")
