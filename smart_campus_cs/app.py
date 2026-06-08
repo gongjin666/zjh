@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import re
 from difflib import get_close_matches
 
-st.set_page_config(page_title="智能校园客服-吉利学院", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="吉利学院智能客服", page_icon="🤖", layout="wide")
 
-st.title("🤖 智能校园客服 · 吉利学院专版")
-st.markdown("> **自然语言处理（NLP）驱动** | 意图识别 + 实体提取 + 知识图谱推理")
+st.title("🏫 吉利学院智能客服")
+st.markdown("> **基于自然语言处理 + 知识图谱** | 所有回答均基于吉利学院")
 
-# -------------------- 知识图谱数据（含学校特色）--------------------
+# -------------------- 知识图谱数据（所有内容均属于吉利学院）--------------------
 courses = {
     "高等数学": {"学分": 5, "教师": "王建国", "教室": "教学楼101", "先修": []},
     "线性代数": {"学分": 3, "教师": "李芳", "教室": "教学楼203", "先修": []},
@@ -41,7 +41,6 @@ famous_alumni = {
     "王磊": {"毕业年份": "2015年", "专业": "车辆工程", "成就": "吉利汽车研究院高级工程师"},
     "陈芳": {"毕业年份": "2018年", "专业": "工商管理", "成就": "入选福布斯30岁以下精英榜"},
 }
-# 新增：吉利学院特色
 features = {
     "校训": "走进校园是为了更好地走向社会",
     "办学理念": "以质量求生存，以特色求发展，以服务求支持",
@@ -52,7 +51,7 @@ features = {
     "办学定位": "建设具有国际影响的高水平应用型大学",
 }
 
-# 构建知识图谱（含特色节点）
+# 构建知识图谱（所有节点都与“吉利学院”中心节点关联）
 @st.cache_resource
 def build_graph():
     G = nx.Graph()
@@ -76,7 +75,7 @@ def build_graph():
     for fac, info in facilities.items():
         loc = info["位置"]; G.add_node(loc, type="位置")
         G.add_edge(fac, loc, relation="位于")
-    # 校史、校友、特色均与学校相连
+    # 所有特色、校史、校友都与学校中心连接
     for event in history: G.add_edge("吉利学院", event, relation="历史事件")
     for alumni in famous_alumni: G.add_edge("吉利学院", alumni, relation="知名校友")
     for ft in features: G.add_edge("吉利学院", ft, relation="特色")
@@ -88,7 +87,7 @@ G = build_graph()
 intent_keywords = {
     "greeting": ["你好", "您好", "hi", "hello", "在吗"],
     "course": ["课程", "学分", "老师", "教室", "先修"],
-    "facility": ["图书馆", "食堂", "体育馆", "校医院", "开放时间", "在哪", "几点", "电话"],
+    "facility": ["图书馆", "食堂", "体育馆", "校医院", "开放时间", "在哪", "几点", "电话", "设施"],
     "policy": ["奖学金", "转专业", "助学金", "政策", "条件", "申请"],
     "history": ["历史", "创办", "升格", "迁址", "校史"],
     "alumni": ["校友", "知名", "毕业", "成就"],
@@ -96,7 +95,6 @@ intent_keywords = {
 }
 
 def classify_intent(text):
-    """基于关键词匹配的意图识别"""
     text_lower = text.lower()
     for intent, words in intent_keywords.items():
         if any(w in text_lower for w in words):
@@ -104,7 +102,6 @@ def classify_intent(text):
     return "unknown"
 
 def extract_entities(text, entity_dict):
-    """提取文本中的实体（精确匹配 + 模糊匹配）"""
     candidates = list(entity_dict.keys())
     found = []
     for ent in candidates:
@@ -119,58 +116,62 @@ def extract_entities(text, entity_dict):
     return list(set(found))
 
 def answer_question(intent, entities, original_text):
-    """根据意图和实体生成回答，并展示自然语言处理中间结果"""
-    # 先处理特色类（直接匹配关键词，因为 features 是字典非实体列表）
+    """所有回答都明确冠以“吉利学院”"""
+    # 特色类（优先处理）
     if intent == "feature":
         text_lower = original_text.lower()
         if "校训" in text_lower:
-            return f"📖 **校训**：{features['校训']}"
+            return f"📖 **吉利学院校训**：{features['校训']}"
         if "理念" in text_lower:
-            return f"💡 **办学理念**：{features['办学理念']}"
+            return f"💡 **吉利学院办学理念**：{features['办学理念']}"
         if "优势专业" in text_lower or "优势学科" in text_lower:
-            return f"🏆 **优势学科**：{', '.join(features['优势学科'])}"
+            return f"🏆 **吉利学院优势学科**：{', '.join(features['优势学科'])}"
         if "产教融合" in text_lower:
-            return f"🔧 **产教融合**：{features['产教融合']}"
+            return f"🔧 **吉利学院产教融合**：{features['产教融合']}"
         if "校园文化" in text_lower:
-            return f"🎉 **校园文化**：{features['校园文化']}"
+            return f"🎉 **吉利学院校园文化**：{features['校园文化']}"
         if "国际合作" in text_lower:
-            return f"🌍 **国际合作**：{features['国际合作']}"
+            return f"🌍 **吉利学院国际合作**：{features['国际合作']}"
         if "办学定位" in text_lower:
-            return f"🎯 **办学定位**：{features['办学定位']}"
+            return f"🎯 **吉利学院办学定位**：{features['办学定位']}"
         # 默认返回所有特色
         return f"✨ **吉利学院特色**\n- 校训：{features['校训']}\n- 理念：{features['办学理念']}\n- 优势学科：{', '.join(features['优势学科'])}\n- 产教融合：{features['产教融合']}\n- 校园文化：{features['校园文化']}"
     
     if intent == "greeting":
-        return "您好！我是吉利学院智能客服，请问您想了解校史、校友、特色、课程、设施还是政策？"
+        return "您好！我是吉利学院智能客服，所有问答均基于吉利学院。请问您想了解校史、校友、特色、课程、设施还是政策？"
     
     if intent == "course":
         if not entities:
-            return "请提供课程名称，例如“高等数学的学分是多少？”"
+            return "请问您想了解吉利学院的哪门课程？例如“高等数学的学分是多少？”"
         for ent in entities:
             if ent in courses:
                 info = courses[ent]
                 prereq = "、".join(info["先修"]) if info["先修"] else "无"
-                return f"📘 **{ent}**\n- 学分：{info['学分']}\n- 教师：{info['教师']}\n- 教室：{info['教室']}\n- 先修：{prereq}"
-        return "未找到该课程，可尝试“高等数学”、“数据结构”、“机器学习”等。"
+                return f"📘 **吉利学院《{ent}》**\n- 学分：{info['学分']}\n- 教师：{info['教师']}\n- 教室：{info['教室']}\n- 先修：{prereq}"
+        return "未找到该课程，可尝试“高等数学”、“数据结构”、“机器学习”等吉利学院开设的课程。"
     
     if intent == "facility":
         if not entities:
-            return "请指定设施名称，如“图书馆”、“体育馆”、“第一食堂”或“校医院”。"
+            # 如果用户问“设施有哪些”这种无实体的，返回所有设施列表
+            if "设施" in original_text or "有哪些" in original_text:
+                fac_list = "、".join(facilities.keys())
+                return f"🏢 **吉利学院设施包括**：{fac_list}。您也可以具体询问某个设施，如图书馆。"
+            return "请问您想了解吉利学院的哪个设施？例如“图书馆几点开门？”"
         for ent in entities:
             if ent in facilities:
                 info = facilities[ent]
                 extra = info.get("电话", info.get("项目", info.get("特色", info.get("服务", ""))))
-                return f"🏢 **{ent}**\n- 开放时间：{info['开放时间']}\n- 位置：{info['位置']}\n- {extra}"
-        return "未找到该设施，可尝试“图书馆”、“体育馆”等。"
+                return f"🏢 **吉利学院{ent}**\n- 开放时间：{info['开放时间']}\n- 位置：{info['位置']}\n- {extra}"
+        return "未找到该设施，吉利学院的设施有：图书馆、体育馆、第一食堂、校医院等。"
     
     if intent == "policy":
         if not entities:
-            return "您可以问“奖学金”、“转专业”或“助学金”。"
+            return "吉利学院的相关政策有：奖学金、转专业、助学金。您想了解哪一项？"
         for ent in entities:
             if ent in policies:
                 info = policies[ent]
-                return f"📜 **{ent}**\n- 条件：{info['条件']}\n- {info.get('金额', info.get('流程', ''))}\n- 时间：{info.get('申请时间', info.get('时间', '请咨询教务处'))}"
-        return "未找到该政策，请尝试“奖学金”、“转专业”或“助学金”。"
+                return f"📜 **吉利学院{ent}**\n- 条件：{info['条件']}\n- {info.get('金额', info.get('流程', ''))}\n- 时间：{info.get('申请时间', info.get('时间', '请咨询教务处'))}"
+        return "未找到该政策，吉利学院的政策包括奖学金、转专业、助学金。"
     
     if intent == "history":
         if not entities:
@@ -179,28 +180,28 @@ def answer_question(intent, entities, original_text):
         for key in entities:
             if key in history:
                 info = history[key]
-                return f"📜 **{key}**：{info['时间']}，{info['事件']}"
+                return f"📜 **吉利学院{key}**：{info['时间']}，{info['事件']}"
         if "创办" in original_text:
             return f"📜 吉利学院创办于1999年，初名北京吉利大学。"
         if "迁址" in original_text or "搬到" in original_text:
             return f"📜 吉利学院于2020年整体迁至成都市，更名为吉利学院。"
-        return "请具体询问，如“吉利学院创办时间”、“迁址成都”等。"
+        return "请具体询问吉利学院历史，如“吉利学院创办时间”、“迁址成都”等。"
     
     if intent == "alumni":
         if not entities:
             names = "、".join(famous_alumni.keys())
-            return f"🎓 **知名校友**：{names}。想了解哪位校友的详细信息？"
+            return f"🎓 **吉利学院知名校友**：{names}。想了解哪位校友的详细信息？"
         for name in entities:
             if name in famous_alumni:
                 info = famous_alumni[name]
-                return f"🎓 **{name}**（{info['毕业年份']}，{info['专业']}）：{info['成就']}"
+                return f"🎓 **吉利学院校友{name}**（{info['毕业年份']}，{info['专业']}）：{info['成就']}"
         if "有哪些" in original_text or "谁" in original_text:
             return f"🎓 吉利学院知名校友包括：{', '.join(famous_alumni.keys())}。"
-        return "未找到该校友信息，可尝试“张强”、“李丽”等。"
+        return "未找到该校友信息，吉利学院知名校友有张强、李丽、王磊、陈芳等。"
     
-    return "抱歉，我无法理解。试试“吉利学院特色”、“校训是什么”、“知名校友有哪些”、“高等数学的学分”等。"
+    return "抱歉，我无法理解。您可以试着问：吉利学院有什么特色？吉利学院图书馆几点开门？吉利学院奖学金条件？"
 
-# 动态子图绘制（含特色节点）
+# 动态子图绘制（略）
 def draw_subgraph(entities, G):
     if not entities:
         seeds = ["吉利学院", "高等数学", "图书馆", "校训"]
@@ -231,7 +232,7 @@ def draw_subgraph(entities, G):
         elif node in policies: node_colors.append("#e57373")
         elif node in history: node_colors.append("#f9a825")
         elif node in famous_alumni: node_colors.append("#ab47bc")
-        elif node in features: node_colors.append("#26c6da")   # 特色用青色
+        elif node in features: node_colors.append("#26c6da")
         elif node == "吉利学院": node_colors.append("#ff7043")
         else: node_colors.append("#bdbdbd")
     nx.draw_networkx_nodes(subG, pos, ax=ax, node_color=node_colors, node_size=900, alpha=0.9)
@@ -247,49 +248,40 @@ def draw_subgraph(entities, G):
 
 # -------------------- 会话UI --------------------
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "您好！我是吉利学院智能客服，请问您想了解**特色**、校史、校友、课程、设施还是政策？"}]
+    st.session_state.messages = [{"role": "assistant", "content": "您好！我是吉利学院智能客服，所有问答均基于吉利学院。请问您想了解校史、校友、特色、课程、设施还是政策？"}]
 if "last_entities" not in st.session_state:
     st.session_state.last_entities = []
-if "last_nlp" not in st.session_state:
-    st.session_state.last_nlp = None
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 if prompt := st.chat_input("请输入您的问题..."):
-    # 用户消息
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
     
-    # NLP 处理
     intent = classify_intent(prompt)
     all_entities = {**courses, **facilities, **policies, **history, **famous_alumni, "吉利学院": None}
     entities = extract_entities(prompt, all_entities)
     st.session_state.last_entities = entities
-    st.session_state.last_nlp = {"intent": intent, "entities": entities}
-    
-    # 生成回答
     answer = answer_question(intent, entities, prompt)
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant"):
         st.markdown(answer)
-        # 显示 NLP 处理结果（自然语言处理过程可视化）
         with st.expander("🔍 自然语言处理过程"):
             st.markdown(f"**意图识别**: {intent}")
             st.markdown(f"**提取实体**: {', '.join(entities) if entities else '无'}")
-            st.markdown("**规则匹配**: 基于关键词词典 + 正则表达式 + 模糊匹配")
-            st.markdown("**知识图谱查询**: 匹配实体节点 → 提取属性 → 生成回答")
+            st.markdown("**推理依据**: 所有回答均以吉利学院为主体，自动补全校名。")
 
 # 侧边栏
 with st.sidebar:
-    st.header("🗺️ 动态知识图谱")
+    st.header("🗺️ 知识图谱")
     fig = draw_subgraph(st.session_state.last_entities, G)
     st.pyplot(fig)
-    st.caption("🎨 颜色：课程绿 | 设施蓝 | 政策红 | 校史橙 | 校友紫 | 特色青 | 学校橙红")
+    st.caption("所有节点均属于吉利学院")
     st.divider()
-    st.subheader("📚 知识库速览")
+    st.subheader("📚 吉利学院知识库")
     with st.expander("🏫 学校特色"):
         for k, v in features.items():
             if isinstance(v, list):
@@ -303,8 +295,6 @@ with st.sidebar:
     with st.expander("📜 政策"):
         for p in policies: st.write(f"- {p}")
     with st.expander("📅 校史"):
-        for e in history: st.write(f"- {e}（{history[e]['时间']}）")
+        for e in history: st.write(f"- {e}")
     with st.expander("🎓 知名校友"):
-        for a in famous_alumni: st.write(f"- {a}（{famous_alumni[a]['专业']}）")
-    st.divider()
-    st.caption("💡 自然语言处理示例：问“吉利学院有什么特色？” → 意图feature → 实体无 → 返回所有特色")
+        for a in famous_alumni: st.write(f"- {a}")
